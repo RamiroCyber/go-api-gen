@@ -1,16 +1,17 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"go-api-gen/cmd"
-	"os"
 )
 
-var Version = "v1.0.3"
-
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Println(Version)
+	flagVersion := flag.Bool("version", false, "Mostra a versão")
+	flag.Parse()
+
+	if *flagVersion {
+		fmt.Println("go-api-gen v1.0.4")
 		return
 	}
 	cmd.Execute()
