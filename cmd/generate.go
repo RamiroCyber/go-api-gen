@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,9 +12,6 @@ import (
 
 var moduleName string
 var customMethods []string
-
-//go:embed templates/*.tmpl
-var templatesFS embed.FS
 
 // Comando pai: "generate"
 var generateCmd = &cobra.Command{
@@ -41,15 +37,25 @@ func init() {
 }
 
 func generateModule(name string, customs []string) {
-	titleName := strings.Title(name)
+	titleName := strings.ToUpper(name[:1]) + name[1:]
+
 	data := struct {
 		ModuleName      string
 		TitleModuleName string
 		CustomMethods   []string
 	}{
-		ModuleName:      name,
+		ModuleName:      strings.ToLower(name),
 		TitleModuleName: titleName,
 		CustomMethods:   customs,
+	}
+
+	funcMap := template.FuncMap{
+		"title": func(s string) string {
+			if len(s) == 0 {
+				return ""
+			}
+			return strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
+		},
 	}
 
 	templates := map[string]string{
@@ -62,8 +68,9 @@ func generateModule(name string, customs []string) {
 	}
 
 	for tmplFile, outFile := range templates {
-		tmplPath := tmplFile // Direto, sem prefixo "templates/"
-		t, err := template.ParseFS(templatesFS, tmplPath)
+		tmplPath := filepath.Join("templates/", tmplFile)
+		t := template.New(tmplFile).Funcs(funcMap)
+		t, err := t.ParseFiles(tmplPath)
 		if err != nil {
 			fmt.Printf("Erro ao parsear template %s: %v\n", tmplFile, err)
 			return

@@ -7,7 +7,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "go-api-gen",
+	Use:   "go-gen",
 	Short: "CLI para gerar módulos de API em Go",
 	Long:  `Uma ferramenta para automatizar a criação de módulos com model, repository, service e controller.`,
 }

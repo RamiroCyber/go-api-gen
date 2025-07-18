@@ -1,0 +1,19 @@
+package {{.ModuleName}}
+
+import "context"
+
+// Implementação mock ou com DB (ex: usando sql.DB)
+type {{.TitleModuleName}}RepositoryImpl struct {
+	// db *sql.DB
+}
+
+func New{{.TitleModuleName}}Repository() {{.TitleModuleName}}Repository {
+	return &{{.TitleModuleName}}RepositoryImpl{}
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	// Implementação CRUD básica
+	return nil
+}
+
+// Implemente os outros métodos CRUD e custom...

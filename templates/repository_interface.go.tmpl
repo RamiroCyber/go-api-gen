@@ -1,0 +1,14 @@
+package {{.ModuleName}}
+
+import "context"
+
+type {{.TitleModuleName}}Repository interface {
+    Create(ctx context.Context, entity {{.TitleModuleName}}) error
+    Read(ctx context.Context, id int) ({{.TitleModuleName}}, error)
+    Update(ctx context.Context, entity {{.TitleModuleName}}) error
+    Delete(ctx context.Context, id int) error
+    List(ctx context.Context) ([]{{.TitleModuleName}}, error)
+    {{range .CustomMethods}}
+    {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error)
+    {{end}}
+}
