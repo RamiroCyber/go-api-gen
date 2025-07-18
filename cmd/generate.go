@@ -13,7 +13,7 @@ var moduleName string
 var customMethods []string // Para métodos extras como FindByEmail
 
 var generateCmd = &cobra.Command{
-	Use:   "generate module [name]",
+	Use:   "module [name]",
 	Short: "Gera um módulo com model, repository, service e controller",
 	Args:  cobra.ExactArgs(1), // Exige exatamente 1 argumento: o nome do módulo
 	Run: func(cmd *cobra.Command, args []string) {
