@@ -1,0 +1,40 @@
+package {{.ModuleName}}
+
+import "context"
+
+type {{.TitleModuleName}}ServiceImpl struct {
+	repo {{.TitleModuleName}}Repository
+}
+
+func New{{.TitleModuleName}}Service(repo {{.TitleModuleName}}Repository) {{.TitleModuleName}}Service {
+	return &{{.TitleModuleName}}ServiceImpl{repo: repo}
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	// Adicione lógica de negócio aqui, se necessário
+	return s.repo.Create(ctx, entity)
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id int) (*{{.TitleModuleName}}, error) {
+	return s.repo.Read(ctx, id)
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	return s.repo.Update(ctx, entity)
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id int) error {
+	return s.repo.Delete(ctx, id)
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context) ([]*{{.TitleModuleName}}, error) {
+	return s.repo.List(ctx)
+}
+
+{{range .CustomMethods}}
+func (s *{{$.TitleModuleName}}ServiceImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+	// Implemente lógica customizada aqui
+	// Ex: para FindByEmail, chame s.repo.FindByEmail(ctx, param)
+	return nil, nil  // Placeholder
+}
+{{end}}

@@ -1,0 +1,81 @@
+package {{.ModuleName}}
+
+import (
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type {{.TitleModuleName}}Controller struct {
+	service {{.TitleModuleName}}Service
+}
+
+func New{{.TitleModuleName}}Controller(service {{.TitleModuleName}}Service) *{{.TitleModuleName}}Controller {
+	return &{{.TitleModuleName}}Controller{service: service}
+}
+
+func (ctrl *{{.TitleModuleName}}Controller) Create(c *fiber.Ctx) error {
+	var entity {{.TitleModuleName}}
+	if err := c.BodyParser(&entity); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := ctrl.service.Create(c.Context(), &entity); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusCreated).JSON(entity)
+}
+
+func (ctrl *{{.TitleModuleName}}Controller) Read(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+	entity, err := ctrl.service.Read(c.Context(), id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(entity)
+}
+
+func (ctrl *{{.TitleModuleName}}Controller) Update(c *fiber.Ctx) error {
+	var entity {{.TitleModuleName}}
+	if err := c.BodyParser(&entity); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := ctrl.service.Update(c.Context(), &entity); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(entity)
+}
+
+func (ctrl *{{.TitleModuleName}}Controller) Delete(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+	if err := ctrl.service.Delete(c.Context(), id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (ctrl *{{.TitleModuleName}}Controller) List(c *fiber.Ctx) error {
+	entities, err := ctrl.service.List(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(entities)
+}
+
+{{range .CustomMethods}}
+func (ctrl *{{$.TitleModuleName}}Controller) {{.}}(c *fiber.Ctx) error {
+	param := c.Query("param")  // Ex: ?param=email@example.com para FindByEmail
+	entity, err := ctrl.service.{{.}}(c.Context(), param)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(entity)
+}
+{{end}}
