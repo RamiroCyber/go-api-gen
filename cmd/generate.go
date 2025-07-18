@@ -1,5 +1,3 @@
-// Atualize cmd/generate.go com embed para templates
-
 package cmd
 
 import (
@@ -43,7 +41,7 @@ func init() {
 }
 
 func generateModule(name string, customs []string) {
-	titleName := strings.ToTitle(name)
+	titleName := strings.Title(name)
 	data := struct {
 		ModuleName      string
 		TitleModuleName string
@@ -64,7 +62,7 @@ func generateModule(name string, customs []string) {
 	}
 
 	for tmplFile, outFile := range templates {
-		tmplPath := tmplFile
+		tmplPath := tmplFile // Direto, sem prefixo "templates/"
 		t, err := template.ParseFS(templatesFS, tmplPath)
 		if err != nil {
 			fmt.Printf("Erro ao parsear template %s: %v\n", tmplFile, err)
