@@ -2,47 +2,56 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/spf13/cobra"
 )
 
 var moduleName string
-var customMethods []string // Para métodos extras como FindByEmail
+var customMethods []string
 
+// Comando pai: "generate"
 var generateCmd = &cobra.Command{
+	Use:   "generate",
+	Short: "Comandos para gerar componentes",
+	Long:  "Comandos para gerar módulos e outros componentes da API.",
+}
+
+// Subcomando: "module [name]"
+var moduleCmd = &cobra.Command{
 	Use:   "module [name]",
 	Short: "Gera um módulo com model, repository, service e controller",
-	Args:  cobra.ExactArgs(1), // Exige exatamente 1 argumento: o nome do módulo
+	Args:  cobra.ExactArgs(1), // Exige exatamente 1 arg: o nome do módulo
 	Run: func(cmd *cobra.Command, args []string) {
 		moduleName = args[0]
-		// Aqui vamos gerar os arquivos
 		generateModule(moduleName, customMethods)
 	},
 }
 
 func init() {
-	generateCmd.Flags().StringSliceVar(&customMethods, "methods", []string{}, "Métodos customizados, ex: FindByEmail")
-	// Torna o flag persistente se precisar
+	// Adicione flags ao subcomando "module"
+	moduleCmd.Flags().StringSliceVar(&customMethods, "methods", []string{}, "Métodos customizados, ex: FindByEmail")
+
+	// Aninhe "module" sob "generate"
+	generateCmd.AddCommand(moduleCmd)
 }
 
+// Função generateModule (mantenha como antes, com templates e lógica de geração)
 func generateModule(name string, customs []string) {
-	// Capitalize o nome
-	titleName := strings.ToTitle(name) // Agora usada no struct
-
+	titleName := strings.ToTitle(name)
 	data := struct {
 		ModuleName      string
-		TitleModuleName string // Novo campo para o nome capitalizado
+		TitleModuleName string
 		CustomMethods   []string
 	}{
-		ModuleName:      name,      // Minúsculo, ex: "user"
-		TitleModuleName: titleName, // Capitalizado, ex: "User"
+		ModuleName:      name,
+		TitleModuleName: titleName,
 		CustomMethods:   customs,
 	}
 
-	// Lista de templates e arquivos de saída (igual ao anterior)
 	templates := map[string]string{
 		"model.go.tmpl":                filepath.Join("internal/modules", name, "model.go"),
 		"repository_interface.go.tmpl": filepath.Join("internal/modules", name, "repository.go"),
@@ -60,7 +69,6 @@ func generateModule(name string, customs []string) {
 			return
 		}
 
-		// Crie diretórios se não existirem
 		dir := filepath.Dir(outFile)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			fmt.Printf("Erro ao criar diretório: %v\n", err)
@@ -72,7 +80,12 @@ func generateModule(name string, customs []string) {
 			fmt.Printf("Erro ao criar arquivo %s: %v\n", outFile, err)
 			return
 		}
-		defer f.Close()
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+
+			}
+		}(f)
 
 		if err := t.Execute(f, data); err != nil {
 			fmt.Printf("Erro ao executar template %s: %v\n", tmplFile, err)
