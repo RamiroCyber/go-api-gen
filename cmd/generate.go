@@ -1,6 +1,9 @@
+// Atualize cmd/generate.go com embed para templates
+
 package cmd
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +16,9 @@ import (
 var moduleName string
 var customMethods []string
 
+//go:embed templates/*.tmpl
+var templatesFS embed.FS
+
 // Comando pai: "generate"
 var generateCmd = &cobra.Command{
 	Use:   "generate",
@@ -24,7 +30,7 @@ var generateCmd = &cobra.Command{
 var moduleCmd = &cobra.Command{
 	Use:   "module [name]",
 	Short: "Gera um módulo com model, repository, service e controller",
-	Args:  cobra.ExactArgs(1), // Exige exatamente 1 arg: o nome do módulo
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		moduleName = args[0]
 		generateModule(moduleName, customMethods)
@@ -32,14 +38,10 @@ var moduleCmd = &cobra.Command{
 }
 
 func init() {
-	// Adicione flags ao subcomando "module"
 	moduleCmd.Flags().StringSliceVar(&customMethods, "methods", []string{}, "Métodos customizados, ex: FindByEmail")
-
-	// Aninhe "module" sob "generate"
 	generateCmd.AddCommand(moduleCmd)
 }
 
-// Função generateModule (mantenha como antes, com templates e lógica de geração)
 func generateModule(name string, customs []string) {
 	titleName := strings.ToTitle(name)
 	data := struct {
@@ -62,8 +64,8 @@ func generateModule(name string, customs []string) {
 	}
 
 	for tmplFile, outFile := range templates {
-		tmplPath := filepath.Join("templates", tmplFile)
-		t, err := template.ParseFiles(tmplPath)
+		tmplPath := "templates/" + tmplFile
+		t, err := template.ParseFS(templatesFS, tmplPath)
 		if err != nil {
 			fmt.Printf("Erro ao parsear template %s: %v\n", tmplFile, err)
 			return
@@ -80,12 +82,7 @@ func generateModule(name string, customs []string) {
 			fmt.Printf("Erro ao criar arquivo %s: %v\n", outFile, err)
 			return
 		}
-		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
-
-			}
-		}(f)
+		defer f.Close()
 
 		if err := t.Execute(f, data); err != nil {
 			fmt.Printf("Erro ao executar template %s: %v\n", tmplFile, err)
