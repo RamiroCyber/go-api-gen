@@ -3,7 +3,7 @@
 set -e
 
 REPO="RamiroCyber/go-api-gen"
-VERSION="v1.0.1"
+VERSION="v1.0.3"
 BINARY_NAME="go-api-gen"
 INSTALL_DIR="$HOME/.local/bin"
 BINARY_PATH="$INSTALL_DIR/$BINARY_NAME"

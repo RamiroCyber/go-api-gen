@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-var Version = "v1.0.2"
+var Version = "v1.0.3"
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
