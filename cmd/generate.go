@@ -64,7 +64,7 @@ func generateModule(name string, customs []string) {
 	}
 
 	for tmplFile, outFile := range templates {
-		tmplPath := "templates/" + tmplFile
+		tmplPath := tmplFile
 		t, err := template.ParseFS(templatesFS, tmplPath)
 		if err != nil {
 			fmt.Printf("Erro ao parsear template %s: %v\n", tmplFile, err)
