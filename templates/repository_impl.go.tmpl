@@ -1,0 +1,229 @@
+package {{.ModuleName}}
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+	"github.com/google/uuid"
+{{if eq .DB "gorm"}}
+	"gorm.io/gorm"
+{{end}}
+	"{{.RootPackage}}/pkg/errors"
+)
+
+
+{{if eq .DB "gorm"}}
+type {{.TitleModuleName}}RepositoryImpl struct {
+	db *gorm.DB
+}
+
+func New{{.TitleModuleName}}Repository(db *gorm.DB) {{.TitleModuleName}}Repository {
+	return &{{.TitleModuleName}}RepositoryImpl{db: db}
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	if entity.ID == uuid.Nil {
+		entity.ID = uuid.New()
+	}
+	now := time.Now()
+	entity.CreatedAt = now
+	entity.UpdatedAt = now
+
+	return r.db.WithContext(ctx).Create(entity).Error
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+	entity := &{{.TitleModuleName}}{}
+	if err := r.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", id).First(entity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pkgerrors.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to read entity: %w", err)
+	}
+	return entity, nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	entity.UpdatedAt = time.Now()
+	return r.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", entity.ID).Save(entity).Error
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&{{.TitleModuleName}}{}).Where("id = ? AND deleted_at IS NULL", id).Update("deleted_at", now).Error
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+	var list []*{{.TitleModuleName}}
+	var total int64
+	if err := r.db.WithContext(ctx).Model(&{{.TitleModuleName}}{}).Where("deleted_at IS NULL").Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count entities: %w", err)
+	}
+	if err := r.db.WithContext(ctx).Where("deleted_at IS NULL").Offset(offset).Limit(limit).Order("created_at DESC").Find(&list).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list entities: %w", err)
+	}
+	return list, total, nil
+}
+
+{{range .CustomMethods}}
+func (r *{{$.TitleModuleName}}RepositoryImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+	if param == "" {
+		return nil, pkgerrors.ErrInvalidEntity
+	}
+	entity := &{{$.TitleModuleName}}{}
+	if err := r.db.WithContext(ctx).Where("some_field = ? AND deleted_at IS NULL", param).First(entity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pkgerrors.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to {{.}}: %w", err)
+	}
+	return entity, nil
+}
+{{end}}
+
+{{else}}
+type {{.TitleModuleName}}RepositoryImpl struct {
+	db        *sql.DB
+	tableName string
+}
+
+func New{{.TitleModuleName}}Repository(db *sql.DB) {{.TitleModuleName}}Repository {
+	return &{{.TitleModuleName}}RepositoryImpl{db: db, tableName: "{{.ModuleName}}s"}
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	if entity.ID == uuid.Nil {
+		entity.ID = uuid.New()
+	}
+	now := time.Now()
+	entity.CreatedAt = now
+	entity.UpdatedAt = now
+
+	fields := "id, created_at, updated_at, deleted_at{{range .Fields}}, {{.Name | lower}}{{end}}"
+	values := "$1, $2, $3, $4{{ $index := 4 }}{{range .Fields}}{{ $index = add $index 1 }}, ${{ $index }}{{end}}"
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", r.tableName, fields, values)
+	args := []interface{}{entity.ID, entity.CreatedAt, entity.UpdatedAt, entity.DeletedAt{{range .Fields}}, entity.{{.Name}}{{end}}}
+	_, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to create entity: %w", err)
+	}
+	return nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+	fields := "id, created_at, updated_at, deleted_at{{range .Fields}}, {{.Name | lower}}{{end}}"
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1 AND deleted_at IS NULL", fields, r.tableName)
+	row := r.db.QueryRowContext(ctx, query, id)
+	entity := &{{.TitleModuleName}}{}
+	args := []interface{}{&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt{{range .Fields}}, &entity.{{.Name}}{{end}}}
+	err := row.Scan(args...)
+	if err == sql.ErrNoRows {
+		return nil, pkgerrors.ErrNotFound
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to read entity: %w", err)
+	}
+	return entity, nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	entity.UpdatedAt = time.Now()
+
+	set := "updated_at = $1, deleted_at = $2{{ $index := 2 }}{{range .Fields}}{{ $index = add $index 1 }}, {{.Name | lower}} = ${{ $index }}{{end}}"
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ${{ add (len .Fields) 3 }} AND deleted_at IS NULL", r.tableName, set)
+	args := []interface{}{entity.UpdatedAt, entity.DeletedAt{{range .Fields}}, entity.{{.Name}}{{end}}, entity.ID}
+	result, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update entity: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return pkgerrors.ErrNotFound
+	}
+	return nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %s SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL", r.tableName)
+	result, err := r.db.ExecContext(ctx, query, now, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete entity: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return pkgerrors.ErrNotFound
+	}
+	return nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+	offset := (page - 1) * limit
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL", r.tableName)
+	var total int64
+	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count entities: %w", err)
+	}
+	fields := "id, created_at, updated_at, deleted_at{{range .Fields}}, {{.Name | lower}}{{end}}"
+	dataQuery := fmt.Sprintf("SELECT %s FROM %s WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2", fields, r.tableName)
+	rows, err := r.db.QueryContext(ctx, dataQuery, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list entities: %w", err)
+	}
+	defer rows.Close()
+	list := []*{{.TitleModuleName}}{}
+	for rows.Next() {
+		entity := &{{.TitleModuleName}}{}
+		args := []interface{}{&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt{{range .Fields}}, &entity.{{.Name}}{{end}}}
+		if err := rows.Scan(args...); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan entity: %w", err)
+		}
+		list = append(list, entity)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating rows: %w", err)
+	}
+	return list, total, nil
+}
+{{range .CustomMethods}}
+func (r *{{$.TitleModuleName}}RepositoryImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+	if param == "" {
+		return nil, pkgerrors.ErrInvalidEntity
+	}
+	fields := "id, created_at, updated_at, deleted_at{{range $.Fields}}, {{.Name | lower}}{{end}}"
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE some_field = $1 AND deleted_at IS NULL", fields, r.tableName) // Ajuste "some_field" (ex: email = $1)
+	row := r.db.QueryRowContext(ctx, query, param)
+
+	entity := &{{$.TitleModuleName}}{}
+	args := []interface{}{&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt{{range $.Fields}}, &entity.{{.Name}}{{end}}}
+	err := row.Scan(args...)
+	if err == sql.ErrNoRows {
+		return nil, pkgerrors.ErrNotFound
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to {{.}}: %w", err)
+	}
+	return entity, nil
+}
+{{end}}
+{{end}}

@@ -1,0 +1,110 @@
+package {{.ModuleName}}
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
+{{if .Validator}}
+	"github.com/go-playground/validator/v10"
+{{end}}
+	"{{.RootPackage}}/pkg/errors"
+)
+
+{{if .Validator}}
+var validate = validator.New()
+{{end}}
+
+type {{.TitleModuleName}}ServiceImpl struct {
+	repo {{.TitleModuleName}}Repository
+}
+
+func New{{.TitleModuleName}}Service(repo {{.TitleModuleName}}Repository) {{.TitleModuleName}}Service {
+	return &{{.TitleModuleName}}ServiceImpl{repo: repo}
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) validate(entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+{{if .Validator}}
+	if err := validate.Struct(entity); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+{{end}}
+
+	return nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if err := s.validate(entity); err != nil {
+		return err
+	}
+	if err := s.repo.Create(ctx, entity); err != nil {
+		return fmt.Errorf("failed to create entity in service: %w", err)
+	}
+	return nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+	if id == uuid.Nil {
+		return nil, pkgerrors.ErrInvalidEntity
+	}
+	entity, err := s.repo.Read(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read entity in service: %w", err)
+	}
+	return entity, nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if err := s.validate(entity); err != nil {
+		return err
+	}
+	if entity.ID == uuid.Nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	if err := s.repo.Update(ctx, entity); err != nil {
+		return fmt.Errorf("failed to update entity in service: %w", err)
+	}
+	return nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	if id == uuid.Nil {
+		return pkgerrors.ErrInvalidEntity
+	}
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete entity in service: %w", err)
+	}
+	return nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	list, total, err := s.repo.List(ctx, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list entities in service: %w", err)
+	}
+	return list, total, nil
+}
+{{range .CustomMethods}}
+func (s *{{$.TitleModuleName}}ServiceImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+	if param == "" {
+		return nil, pkgerrors.ErrInvalidEntity
+	}
+
+	entity, err := s.repo.{{.}}(ctx, param)
+	if err != nil {
+		return nil, fmt.Errorf("failed to {{.}} in service: %w", err)
+	}
+	return entity, nil
+}
+{{end}}

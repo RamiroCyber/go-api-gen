@@ -1,0 +1,9 @@
+package errors
+
+import "errors"
+
+var (
+    ErrInvalidEntity = errors.New("entity cannot be nil or invalid")
+    ErrNotFound      = errors.New("entity not found")
+
+)

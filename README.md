@@ -1,162 +1,246 @@
 # Go API Generator CLI
 
-[![Go Version](https://img.shields.io/badge/go-1.20%2B-blue.svg)](https://golang.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+`go-api-gen` is a command-line interface (CLI) tool written in Go to generate RESTful API modules with a layered architecture (model, repository, service, controller) using the [Fiber](https://gofiber.io) framework. It automates boilerplate code generation, supporting CRUD operations, custom methods, pagination, field validations, custom errors, unit tests, JWT authentication, Swagger documentation, Docker, and CI/CD integration. Ideal for accelerating development of robust and scalable APIs for various applications, from small projects to enterprise systems.
 
-Uma ferramenta de linha de comando (CLI) em Go para automatizar a geração de módulos de API seguindo uma arquitetura em camadas: model, repository, service e controller. Suporta operações CRUD básicas e métodos customizados, com integração ao framework Fiber para controllers.
+## Features
 
-Essa CLI otimiza o desenvolvimento de APIs REST em Go, reduzindo código boilerplate e permitindo customizações rápidas.
+- **Layered Architecture**: Generates `model`, `repository`, `service`, and `controller` for each module, organized in `internal/modules/<module-name>`.
+- **CRUD Operations**: Full support for Create, Read, Update, Delete, with soft delete (via `DeletedAt`).
+- **Pagination**: `List` method supports `page` and `limit` parameters, returning JSON like `{data: [], total: int, page: int, limit: int}`.
+- **Custom Fields**: Define model fields with types and validations via `--fields` (e.g., `name:string required,email:string email unique`).
+- **Database Support**:
+  - SQL (PostgreSQL, MySQL, SQLite) via `database/sql`.
+  - GORM ORM (`--db gorm`) for query abstraction.
+  - Placeholder for MongoDB (`--db mongo`).
+- **Validations**: Integrates `github.com/go-playground/validator/v10` for field validation (`--validator`).
+- **Custom Errors**: Generated in `pkg/errors` (e.g., `ErrNotFound`, `ErrInvalidEntity`) for robust error handling.
+- **Unit Tests**: Generates test files with mocks using `github.com/stretchr/testify` (`--tests`).
+- **JWT Authentication**: Generates middleware in `pkg/middleware/auth.go` (`--auth jwt`).
+- **Swagger Documentation**: Adds annotations for `swagger.json/yaml` generation with `swag init` (`--swagger`).
+- **Docker and CI/CD**: Generates `Dockerfile` and `.github/workflows/ci.yml` for builds and testing (`--docker`, `--ci`).
+- **Custom Methods**: Add extra methods via `--methods` (e.g., `FindByEmail`).
+- **Security and Performance**: Uses safe queries with placeholders, suggests database indexes, and includes validations in service/controller layers.
+- **Version Command**: Supports `go-api-gen --version` to display the CLI version.
 
-## Recursos Principais
-- Geração de módulos completos com interfaces e implementações.
-- Suporte a CRUD básico (Create, Read, Update, Delete, List).
-- Adição de métodos customizados via flags (ex: `--methods FindByEmail`).
-- Templates baseados em Fiber para controllers.
-- Estrutura modular: Arquivos gerados em `internal/modules/{nome-do-modulo}`.
-- Fácil extensão para campos customizados no model ou integração com DBs.
+## Requirements
 
-## Requisitos
-- Go 1.20 ou superior.
-- Para projetos gerados: Dependências como `github.com/gofiber/fiber/v2` (instaladas via `go get`).
+- **Go**: 1.20 or higher.
+- **Generated Project Dependencies** (installed via `go get` in the generated project):
+  - `github.com/gofiber/fiber/v2` (controllers).
+  - `github.com/google/uuid` (IDs).
+  - `github.com/go-playground/validator/v10` (if `--validator`).
+  - `gorm.io/gorm` and `gorm.io/driver/postgres` (or other driver, if `--db gorm`).
+  - `github.com/golang-jwt/jwt/v5` (if `--auth`).
+  - `github.com/stretchr/testify` (if `--tests`).
+  - For Swagger: `github.com/swaggo/swag` and `github.com/swaggo/fiber-swagger`.
 
-## Instalação
+## Installation
 
-### Instalação Global via Go Install
-Para usar o CLI em qualquer projeto:
-1. Clone o repositório:
-   ```
+### Remote Installation (Recommended)
+
+Install `go-api-gen` directly from the latest GitHub release without cloning the repository:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/RamiroCyber/go-api-gen/main/install.sh | bash
+```
+
+This downloads the appropriate binary (e.g., `go-api-gen-linux-amd64` or `go-api-gen-macos-arm64`) to `$HOME/.local/bin`, makes it executable, and adds the directory to your PATH if needed. After installation, run:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+go-api-gen --version
+```
+
+### Local Installation (Development)
+
+1. Clone the repository:
+   ```bash
    git clone https://github.com/RamiroCyber/go-api-gen.git
    cd go-api-gen
    ```
-2. Instale globalmente:
+
+2. Install dependencies:
+   ```bash
+   go mod tidy
    ```
-   go install
+
+3. Build and install locally:
+   ```bash
+   go build -o go-api-gen main.go
+   mv go-api-gen $HOME/.local/bin/
    ```
-    - Isso coloca o binário em `$GOPATH/bin`. Certifique-se de que `$GOPATH/bin` está no seu PATH (adicione `export PATH=$PATH:$(go env GOPATH)/bin` ao seu `.bashrc` ou equivalente).
 
-### Instalação via GitHub (para usuários remotos)
-```
-go install github.com/RamiroCyber/go-api-gen@latest
-```
-
-### Build Local
-Se preferir um binário local:
-```
-go build -o go-api-gen
-```
-- Rode com `./go-api-gen`.
-
-## Uso
-O CLI usa [Cobra](https://github.com/spf13/cobra) para comandos intuitivos.
-
-### Comandos Disponíveis
-- `go-api-gen --help`: Mostra ajuda geral.
-- `go-api-gen generate --help`: Ajuda específica para geração.
-
-### Gerar um Módulo
-```
-go-api-gen generate module <nome-do-modulo> [flags]
-```
-- `<nome-do-modulo>`: Nome do módulo (ex: `user`), usado como pasta e prefixo de structs.
-- Flags:
-    - `--methods <metodo1>,<metodo2>`: Adiciona métodos customizados (ex: `FindByEmail`). Os métodos serão adicionados às interfaces e implementações com placeholders para customização.
-
-Exemplo:
-```
-go-api-gen generate module user --methods FindByEmail,FindByName
-```
-- Isso cria `internal/modules/user/` com:
-    - `model.go`: Struct do model (ex: `type User struct { ... }`).
-    - `repository.go`: Interface do repository.
-    - `repository_impl.go`: Implementação básica (mock ou com DB placeholder).
-    - `service.go`: Interface do service.
-    - `service_impl.go`: Implementação com injeção de repository.
-    - `controller.go`: Controller Fiber com handlers CRUD e custom.
-
-## Exemplo de Integração em um Projeto API
-1. Crie um novo projeto Go:
+4. Ensure `$HOME/.local/bin` is in your PATH:
+   ```bash
+   echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc  # or ~/.zshrc
+   source ~/.bashrc
    ```
-   mkdir minha-api && cd minha-api
-   go mod init github.com/seuusuario/minha-api
+
+5. Verify:
+   ```bash
+   go-api-gen --version
+   ```
+
+## Usage
+
+The main command is `go-api-gen generate module <module-name> [flags]`, which creates a module in `internal/modules/<module-name>`.
+
+### Available Flags
+
+| Flag             | Description                                                               | Example/Explanation                                                                 |
+|------------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| `--methods`      | Comma-separated custom methods                                            | `--methods FindByEmail,FindByName`                                                |
+| `--fields`       | Comma-separated fields: `name:type [tags]`                                | `--fields "name:string required,email:string email unique,age:int gte=18"`        |
+| `--db`           | Database type (default: postgres)                                         | `--db gorm` (or `postgres`, `mysql`, `mongo`)                                     |
+| `--validator`    | Enable validations with `validator/v10` (default: true)                   | `--validator false` to disable                                                    |
+| `--tests`        | Generate unit tests with mocks (default: false)                           | `--tests true`                                                                    |
+| `--auth`         | Authentication type (option: `jwt`)                                       | `--auth jwt` generates middleware in `pkg/middleware/auth.go`                      |
+| `--swagger`      | Generate Swagger annotations (default: false)                             | `--swagger true` (requires `swag init` after generation)                          |
+| `--docker`       | Generate `Dockerfile` for build and deploy (default: false)               | `--docker true`                                                                   |
+| `--ci`           | Generate `.github/workflows/ci.yml` for CI/CD (default: false)            | `--ci true`                                                                       |
+| `--root-package` | Root package for the generated project (default: github.com/user/project) | `--root-package github.com/seuusuario/seuprojeto`                                 |
+
+### Example Usage
+
+1. **Basic Module Generation**:
+   ```bash
+   go-api-gen generate module user
+   ```
+   Generates a `user` module with basic CRUD, using PostgreSQL (`database/sql`).
+
+2. **Full-Featured Module**:
+   ```bash
+   go-api-gen generate module user --methods FindByEmail,FindByName --fields "name:string required,email:string email unique,age:int gte=18" --db gorm --validator true --tests true --auth jwt --swagger true --docker true --ci true --root-package github.com/seuusuario/seuprojeto
+   ```
+   Generates:
+   - `internal/modules/user/` with model (fields `Name`, `Email`, `Age`), repository (GORM), service (with validations), controller (with Swagger annotations), and tests.
+   - `pkg/errors/errors.go` for custom errors.
+   - `pkg/middleware/auth.go` for JWT authentication.
+   - `Dockerfile` and `.github/workflows/ci.yml`.
+
+## Generated Project Structure
+
+After running the full-featured command above, the project structure will be:
+
+```
+seuprojeto/
+├── cmd/
+│   └── api/
+│       └── main.go  # Example initialization (create manually or use --project-init)
+├── internal/
+│   └── modules/
+│       └── user/
+│           ├── model.go
+│           ├── repository.go
+│           ├── repository_impl.go
+│           ├── service.go
+│           ├── service_impl.go
+│           ├── controller.go
+│           └── service_test.go  # If --tests
+├── pkg/
+│   ├── errors/
+│   │   └── errors.go
+│   └── middleware/
+│       └── auth.go  # If --auth=jwt
+├── swagger/
+│   ├── swagger.json  # Generated via swag init
+│   └── swagger.yaml
+├── Dockerfile  # If --docker
+├── .github/
+│   └── workflows/
+│       └── ci.yml  # If --ci
+├── go.mod
+└── go.sum
+```
+
+## Setting Up the Generated Project
+
+1. **Initialize the Project**:
+   ```bash
+   mkdir seuprojeto && cd seuprojeto
+   go mod init github.com/seuusuario/seuprojeto
+   ```
+
+2. **Generate a Module**:
+   Use the `go-api-gen generate module ...` command as shown above.
+
+3. **Install Dependencies**:
+   ```bash
    go get github.com/gofiber/fiber/v2
+   go get github.com/google/uuid
+   go get github.com/go-playground/validator/v10  # If --validator
+   go get gorm.io/gorm gorm.io/driver/postgres  # If --db gorm
+   go get github.com/golang-jwt/jwt/v5  # If --auth
+   go get github.com/stretchr/testify  # If --tests
    ```
 
-2. Gere um módulo:
-   ```
-   go-api-gen generate module user --methods FindByEmail
-   ```
-
-3. Em `main.go` (ex: `cmd/api/main.go`), integre:
+4. **Set Up the Server (cmd/api/main.go)**:
+   Example initialization:
    ```go
    package main
 
    import (
+       "database/sql"
        "github.com/gofiber/fiber/v2"
-       "github.com/seuusuario/minha-api/internal/modules/user"
+       "github.com/seuusuario/seuprojeto/internal/modules/user"
+       "github.com/seuusuario/seuprojeto/pkg/middleware"
+       _ "github.com/lib/pq" // or other driver
    )
 
    func main() {
        app := fiber.New()
-
-       // Injeção de dependências
-       userRepo := user.NewUserRepository() // Ajuste com DB se necessário
-       userService := user.NewUserService(userRepo)
-       userController := user.NewUserController(userService)
-
-       // Rotas
-       app.Post("/users", userController.Create)
-       app.Get("/users/:id", userController.Read)
-       app.Put("/users/:id", userController.Update)
-       app.Delete("/users/:id", userController.Delete)
-       app.Get("/users", userController.List)
-       app.Get("/users/find-by-email", userController.FindByEmail) // Custom
-
-       app.Listen(":3000")
+       db, _ := sql.Open("postgres", "your-connection-string")
+       repo := user.NewUserRepository(db)
+       svc := user.NewUserService(repo)
+       ctrl := user.NewUserController(svc)
+       app.Post("/user", middleware.JWTAuth("secret"), ctrl.Create) // Example with JWT
+       app.Listen(":8080")
    }
    ```
 
-4. Rode o servidor:
+5. **Generate Swagger Documentation** (if `--swagger`):
+   ```bash
+   go install github.com/swaggo/swag/cmd/swag@latest
+   swag init
    ```
-   go run cmd/api/main.go
+   Access at `/swagger/index.html` (requires `github.com/swaggo/fiber-swagger`).
+
+6. **Run Tests** (if `--tests`):
+   ```bash
+   go test ./...
    ```
-    - Teste endpoints com ferramentas como curl ou Postman.
 
-## Customizações
-- **Adicionar Campos ao Model**: Edite `model.go` manualmente após geração. (Futuro: Suporte via flag `--fields id:int,name:string`.)
-- **Integração com DB**: No `repository_impl.go`, adicione lógica com SQL puro. Exemplo:
-  ```go
-  import "database/sql"
+7. **Build and Deploy with Docker** (if `--docker`):
+   ```bash
+   docker build -t seuprojeto .
+   docker run -p 8080:8080 seuprojeto
+   ```
 
-  type UserRepositoryImpl struct {
-      db *sql.DB
-  }
+## Contributing to go-api-gen
 
-  func NewUserRepository(db *sql.DB) UserRepository {
-      return &UserRepositoryImpl{db: db}
-  }
+1. Clone:
+   ```bash
+   git clone https://github.com/RamiroCyber/go-api-gen.git
+   cd go-api-gen
+   ```
 
-  func (r *UserRepositoryImpl) Create(ctx context.Context, entity *User) error {
-      // Implemente query SQL aqui
-      return nil
-  }
-  ```
-- **Métodos Customizados**: Os templates adicionam placeholders. Ajuste parâmetros (ex: mude `param string` para `email string` em `FindByEmail`).
+2. Add templates in `templates/` or modify `main.go`.
 
-## Contribuição
-Contribuições são bem-vindas! Siga estes passos:
-1. Fork o repositório.
-2. Crie uma branch: `git checkout -b feature/nova-funcionalidade`.
-3. Commit suas mudanças: `git commit -m 'Adiciona nova funcionalidade'`.
-4. Push para a branch: `git push origin feature/nova-funcionalidade`.
-5. Abra um Pull Request.
+3. Test locally:
+   ```bash
+   go run main.go generate module user --fields "name:string required" --db gorm
+   ```
 
-Por favor, rode testes e garanta que o código siga o estilo Go (use `go fmt`).
+4. Open issues or PRs for bugs or features (e.g., support for more ORMs, advanced filters).
 
-## Licença
-Este projeto está licenciado sob a [MIT License](LICENSE).
+## Roadmap
 
-## Contato
-- Autor: Seu Nome (seu@email.com)
-- Issues: [Abra uma issue no GitHub](https://github.com/seuusuario/go-api-gen/issues)
+- Support for additional ORMs (Ent, Bun).
+- Advanced filtering and sorting in `List` (e.g., `--filters true`).
+- Redis caching integration.
+- GraphQL endpoint generation.
+- OpenAPI-based client generation.
 
-Obrigado por usar o Go API Generator CLI! 🚀
+## License
+
+MIT

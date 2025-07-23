@@ -1,0 +1,15 @@
+package {{.ModuleName}}
+
+import (
+	"context"
+	"testing"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+type Mock{{.TitleModuleName}}Repository struct {
+	mock.Mock
+}
+
+// Implemente mocks e testes para Create, Read, etc.

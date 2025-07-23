@@ -5,13 +5,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service interface {
+type {{.TitleModuleName}}Repository interface {
 	Create(ctx context.Context, entity *{{.TitleModuleName}}) error
 	Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error)
 	Update(ctx context.Context, entity *{{.TitleModuleName}}) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error)
-	{{range .CustomMethods}}
+{{- range .CustomMethods}}
 	{{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error)
-	{{end}}
+{{- end}}
 }

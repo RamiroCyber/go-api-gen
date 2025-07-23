@@ -1,0 +1,185 @@
+package {{.ModuleName}}
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"strconv"
+	"{{.RootPackage}}/pkg/errors"
+)
+
+type {{.TitleModuleName}}Controller struct {
+	service {{.TitleModuleName}}Service
+}
+
+func New{{.TitleModuleName}}Controller(service {{.TitleModuleName}}Service) *{{.TitleModuleName}}Controller {
+	return &{{.TitleModuleName}}Controller{service: service}
+}
+
+{{if .Swagger}}
+// @Summary Create a new {{.ModuleName}}
+// @Description Create a new entity
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param entity body {{.TitleModuleName}} true "Entity data"
+// @Success 201 {object} {{.TitleModuleName}}
+// @Failure 400 {object} fiber.Map{"error": string}
+// @Failure 500 {object} fiber.Map{"error": string}
+// @Router /{{.ModuleName}} [post]
+{{end}}
+func (ctrl *{{.TitleModuleName}}Controller) Create(c *fiber.Ctx) error {
+	var entity {{.TitleModuleName}}
+	if err := c.BodyParser(&entity); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("failed to parse body: %v", err)})
+	}
+	if err := ctrl.service.Create(c.Context(), &entity); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to create: %v", err)})
+	}
+	return c.Status(fiber.StatusCreated).JSON(entity)
+}
+
+{{if .Swagger}}
+// @Summary Read {{.ModuleName}} by ID
+// @Description Get entity by ID
+// @Tags {{.ModuleName}}
+// @Produce json
+// @Param id path string true "Entity ID"
+// @Success 200 {object} {{.TitleModuleName}}
+// @Failure 400 {object} fiber.Map{"error": string}
+// @Failure 404 {object} fiber.Map{"error": string}
+// @Router /{{.ModuleName}}/{id} [get]
+{{end}}
+func (ctrl *{{.TitleModuleName}}Controller) Read(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid ID"})
+	}
+	entity, err := ctrl.service.Read(c.Context(), id)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "entity not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to read: %v", err)})
+	}
+	return c.JSON(entity)
+}
+
+{{if .Swagger}}
+// @Summary Update {{.ModuleName}}
+// @Description Update entity by ID
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param id path string true "Entity ID"
+// @Param entity body {{.TitleModuleName}} true "Updated entity data"
+// @Success 200 {object} {{.TitleModuleName}}
+// @Failure 400 {object} fiber.Map{"error": string}
+// @Failure 404 {object} fiber.Map{"error": string}
+// @Router /{{.ModuleName}}/{id} [put]
+{{end}}
+func (ctrl *{{.TitleModuleName}}Controller) Update(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid ID"})
+	}
+	var entity {{.TitleModuleName}}
+	if err := c.BodyParser(&entity); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("failed to parse body: %v", err)})
+	}
+	if entity.ID != uuid.Nil && entity.ID != id {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ID mismatch"})
+	}
+	entity.ID = id
+	if err := ctrl.service.Update(c.Context(), &entity); err != nil {
+		if errors.Is(err, pkgerrors.ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "entity not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to update: %v", err)})
+	}
+	return c.JSON(entity)
+}
+
+{{if .Swagger}}
+// @Summary Delete {{.ModuleName}} by ID
+// @Description Delete entity by ID (soft delete)
+// @Tags {{.ModuleName}}
+// @Param id path string true "Entity ID"
+// @Success 204
+// @Failure 400 {object} fiber.Map{"error": string}
+// @Failure 404 {object} fiber.Map{"error": string}
+// @Router /{{.ModuleName}}/{id} [delete]
+{{end}}
+func (ctrl *{{.TitleModuleName}}Controller) Delete(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid ID"})
+	}
+	if err := ctrl.service.Delete(c.Context(), id); err != nil {
+		if errors.Is(err, pkgerrors.ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "entity not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to delete: %v", err)})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+{{if .Swagger}}
+// @Summary List {{.ModuleName}}s
+// @Description List entities with pagination
+// @Tags {{.ModuleName}}
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {object} fiber.Map{"data": []*{{.TitleModuleName}}, "total": int64, "page": int, "limit": int}
+// @Failure 500 {object} fiber.Map{"error": string}
+// @Router /{{.ModuleName}} [get]
+{{end}}
+func (ctrl *{{.TitleModuleName}}Controller) List(c *fiber.Ctx) error {
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "10")
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	list, total, err := ctrl.service.List(c.Context(), page, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to list: %v", err)})
+	}
+	return c.JSON(fiber.Map{
+		"data":  list,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+{{range .CustomMethods}}
+{{if $.Swagger}}
+// @Summary {{.}} {{$.ModuleName}}
+// @Description Custom method {{.}}
+// @Tags {{$.ModuleName}}
+// @Produce json
+// @Param param query string true "Param for {{.}}"
+// @Success 200 {object} {{$.TitleModuleName}}
+// @Failure 400 {object} fiber.Map{"error": string}
+// @Failure 404 {object} fiber.Map{"error": string}
+// @Router /{{$.ModuleName}}/{{lower .}} [get]
+{{end}}
+func (ctrl *{{$.TitleModuleName}}Controller) {{.}}(c *fiber.Ctx) error {
+	param := c.Query("param")
+	if param == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "param required"})
+	}
+	entity, err := ctrl.service.{{.}}(c.Context(), param)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "entity not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("failed to {{.}}: %v", err)})
+	}
+	return c.JSON(entity)
+}
+{{end}}
