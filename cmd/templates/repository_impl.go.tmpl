@@ -1,19 +1,153 @@
 package {{.ModuleName}}
 
-import "context"
+import (
+    "context"
+    "database/sql"
+    "errors"
+    "fmt"
+    "time"
+    "github.com/google/uuid"
+)
 
-// Implementação mock ou com DB (ex: usando sql.DB)
+// Implementação com DB real usando database/sql. Para produção, importe o driver (ex: _ "github.com/lib/pq" para PostgreSQL).
+// Boas práticas: Use prepared statements para segurança contra SQL injection, context para timeout/cancelamento, transações se necessário.
+// Performance: Use indexes no ID (UUID), CreatedAt/UpdatedAt. Para soft delete, filtre DeletedAt IS NULL.
+// Segurança: Sempre use placeholders (?) para params.
 type {{.TitleModuleName}}RepositoryImpl struct {
-	// db *sql.DB
+    db *sql.DB  // Conexão com o DB
+    tableName string  // Nome da tabela (ex: "users")
 }
 
-func New{{.TitleModuleName}}Repository() {{.TitleModuleName}}Repository {
-	return &{{.TitleModuleName}}RepositoryImpl{}
+func New{{.TitleModuleName}}Repository(db *sql.DB) {{.TitleModuleName}}Repository {
+    return &{{.TitleModuleName}}RepositoryImpl{
+    db: db,
+    tableName: "{{.ModuleName}}s",  // Ajuste conforme necessário (ex: "users" para module "user")
+    }
 }
 
 func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
-	// Implementação CRUD básica
-	return nil
+    if entity == nil {
+    return errors.New("entity cannot be nil")
+    }
+
+    // Gere ID se não fornecido
+    if entity.ID == uuid.Nil {
+    entity.ID = uuid.New()
+    }
+
+    now := time.Now()
+    entity.CreatedAt = now
+    entity.UpdatedAt = now
+
+    query := fmt.Sprintf("INSERT INTO %s (id, created_at, updated_at, deleted_at) VALUES ($1, $2, $3, $4)", r.tableName)  // Adicione campos extras
+    // Para PostgreSQL, use $1, $2; para MySQL, use ?
+    _, err := r.db.ExecContext(ctx, query, entity.ID, entity.CreatedAt, entity.UpdatedAt, entity.DeletedAt)
+    if err != nil {
+    return fmt.Errorf("failed to create entity: %w", err)
+    }
+    return nil
 }
 
-// Implemente os outros métodos CRUD e custom...
+func (r *{{.TitleModuleName}}RepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+    query := fmt.Sprintf("SELECT id, created_at, updated_at, deleted_at FROM %s WHERE id = $1 AND deleted_at IS NULL", r.tableName)
+    row := r.db.QueryRowContext(ctx, query, id)
+
+    entity := &{{.TitleModuleName}}{}
+    err := row.Scan(&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt)
+    if err == sql.ErrNoRows {
+    return nil, errors.New("entity not found")
+    } else if err != nil {
+    return nil, fmt.Errorf("failed to read entity: %w", err)
+    }
+    return entity, nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+    if entity == nil {
+    return errors.New("entity cannot be nil")
+    }
+
+    entity.UpdatedAt = time.Now()
+
+    query := fmt.Sprintf("UPDATE %s SET updated_at = $1, deleted_at = $2 WHERE id = $3 AND deleted_at IS NULL", r.tableName)  // Adicione campos extras
+    result, err := r.db.ExecContext(ctx, query, entity.UpdatedAt, entity.DeletedAt, entity.ID)
+    if err != nil {
+    return fmt.Errorf("failed to update entity: %w", err)
+    }
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+    return errors.New("entity not found")
+    }
+    return nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
+    // Soft delete: Set DeletedAt
+    now := time.Now()
+    query := fmt.Sprintf("UPDATE %s SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL", r.tableName)
+    result, err := r.db.ExecContext(ctx, query, now, id)
+    if err != nil {
+    return fmt.Errorf("failed to delete entity: %w", err)
+    }
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+    return errors.New("entity not found")
+    }
+    return nil
+}
+
+func (r *{{.TitleModuleName}}RepositoryImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+    // Calcula offset
+    offset := (page - 1) * limit
+
+    // Query para contar total (sem paginação)
+    countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL", r.tableName)
+    var total int64
+    err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+    if err != nil {
+        return nil, 0, fmt.Errorf("failed to count entities: %w", err)
+    }
+
+    // Query para dados paginados
+    dataQuery := fmt.Sprintf("SELECT id, created_at, updated_at, deleted_at FROM %s WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2", r.tableName)
+    rows, err := r.db.QueryContext(ctx, dataQuery, limit, offset)
+    if err != nil {
+        return nil, 0, fmt.Errorf("failed to list entities: %w", err)
+    }
+    defer rows.Close()
+
+    list := []*{{.TitleModuleName}}{}
+    for rows.Next() {
+        entity := &{{.TitleModuleName}}{}
+        err := rows.Scan(&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt)
+        if err != nil {
+            return nil, 0, fmt.Errorf("failed to scan entity: %w", err)
+        }
+        list = append(list, entity)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, 0, fmt.Errorf("error iterating rows: %w", err)
+    }
+    return list, total, nil
+}
+
+// Métodos customizados como placeholders. Ajuste queries e params para produção.
+{{range .CustomMethods}}
+func (r *{{$.TitleModuleName}}RepositoryImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+    if param == "" {
+    return nil, errors.New("param cannot be empty")
+    }
+
+    query := fmt.Sprintf("SELECT id, created_at, updated_at, deleted_at FROM %s WHERE some_field = $1 AND deleted_at IS NULL", r.tableName)  // Ajuste "some_field" (ex: email = $1)
+    row := r.db.QueryRowContext(ctx, query, param)
+
+    entity := &{{$.TitleModuleName}}{}
+    err := row.Scan(&entity.ID, &entity.CreatedAt, &entity.UpdatedAt, &entity.DeletedAt)
+    if err == sql.ErrNoRows {
+    return nil, errors.New("entity not found")
+    } else if err != nil {
+    return nil, fmt.Errorf("failed to find entity: %w", err)
+    }
+    return entity, nil
+}
+{{end}}

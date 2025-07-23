@@ -1,6 +1,11 @@
 package {{.ModuleName}}
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
+)
 
 type {{.TitleModuleName}}ServiceImpl struct {
 	repo {{.TitleModuleName}}Repository
@@ -10,31 +15,93 @@ func New{{.TitleModuleName}}Service(repo {{.TitleModuleName}}Repository) {{.Titl
 	return &{{.TitleModuleName}}ServiceImpl{repo: repo}
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
-	// Adicione lógica de negócio aqui, se necessário
-	return s.repo.Create(ctx, entity)
+// validate is a placeholder for business validation logic.
+// Expand this with field-specific checks (e.g., required fields, formats).
+// Consider using a library like github.com/go-playground/validator/v10 for struct tags.
+func (s *{{.TitleModuleName}}ServiceImpl) validate(entity *{{.TitleModuleName}}) error {
+	if entity == nil {
+		return errors.New("entity cannot be nil")
+	}
+	// Add custom validations here, e.g.:
+	// if entity.SomeField == "" { return errors.New("some_field is required") }
+	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id int) (*{{.TitleModuleName}}, error) {
-	return s.repo.Read(ctx, id)
+func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+	if err := s.validate(entity); err != nil {
+		return err
+	}
+	// Adicione outras validações de negócio aqui, se necessário (ex: checar unicidade via repo)
+	if err := s.repo.Create(ctx, entity); err != nil {
+		return fmt.Errorf("failed to create entity in service: %w", err)
+	}
+	return nil
+}
+
+func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("invalid entity ID")
+	}
+	entity, err := s.repo.Read(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read entity in service: %w", err)
+	}
+	return entity, nil
 }
 
 func (s *{{.TitleModuleName}}ServiceImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
-	return s.repo.Update(ctx, entity)
+	if err := s.validate(entity); err != nil {
+		return err
+	}
+	if entity.ID == uuid.Nil {
+		return errors.New("invalid entity ID")
+	}
+	// Adicione validações de negócio aqui, se necessário (ex: checar versão para concorrência)
+	if err := s.repo.Update(ctx, entity); err != nil {
+		return fmt.Errorf("failed to update entity in service: %w", err)
+	}
+	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id int) error {
-	return s.repo.Delete(ctx, id)
+func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	if id == uuid.Nil {
+		return errors.New("invalid entity ID")
+	}
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete entity in service: %w", err)
+	}
+	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context) ([]*{{.TitleModuleName}}, error) {
-	return s.repo.List(ctx)
+func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+	// Validações de paginação
+	if page < 1 {
+		page = 1 // Default
+	}
+	if limit < 1 {
+		limit = 10 // Default razoável
+	} else if limit > 100 { // Limite máximo para performance
+		limit = 100
+	}
+
+	// Adicione filtros ou ordenação de negócio aqui, se necessário
+	list, total, err := s.repo.List(ctx, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list entities in service: %w", err)
+	}
+	return list, total, nil
 }
 
 {{range .CustomMethods}}
 func (s *{{$.TitleModuleName}}ServiceImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
-	// Implemente lógica customizada aqui
-	// Ex: para FindByEmail, chame s.repo.FindByEmail(ctx, param)
-	return nil, nil  // Placeholder
+	if param == "" {
+		return nil, errors.New("param cannot be empty")
+	}
+	// Adicione validações específicas (ex: uuid.Parse(param) para IDs, regex para emails)
+	entity, err := s.repo.{{.}}(ctx, param)
+	if err != nil {
+		return nil, fmt.Errorf("failed to {{.}} in service: %w", err)
+	}
+	return entity, nil
 }
 {{end}}
