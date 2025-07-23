@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type {{.TitleModuleName}}Repository interface {
+type Repository interface {
 	Create(ctx context.Context, entity *{{.TitleModuleName}}) error
 	Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error)
 	Update(ctx context.Context, entity *{{.TitleModuleName}}) error

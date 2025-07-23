@@ -7,18 +7,18 @@ import (
 	"github.com/google/uuid"
 )
 
-type {{.TitleModuleName}}ServiceImpl struct {
-	repo {{.TitleModuleName}}Repository
+type ServiceImpl struct {
+	repo Repository
 }
 
-func New{{.TitleModuleName}}Service(repo {{.TitleModuleName}}Repository) {{.TitleModuleName}}Service {
-	return &{{.TitleModuleName}}ServiceImpl{repo: repo}
+func New{{.TitleModuleName}}Service(repo Repository) Service {
+	return &ServiceImpl{repo: repo}
 }
 
 // validate is a placeholder for business validation logic.
 // Expand this with field-specific checks (e.g., required fields, formats).
 // Consider using a library like github.com/go-playground/validator/v10 for struct tags.
-func (s *{{.TitleModuleName}}ServiceImpl) validate(entity *{{.TitleModuleName}}) error {
+func (s *ServiceImpl) validate(entity *{{.TitleModuleName}}) error {
 	if entity == nil {
 		return errors.New("entity cannot be nil")
 	}
@@ -27,7 +27,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) validate(entity *{{.TitleModuleName}})
 	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+func (s *ServiceImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
 	if err := s.validate(entity); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) Create(ctx context.Context, entity *{{
 	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+func (s *ServiceImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
 	if id == uuid.Nil {
 		return nil, errors.New("invalid entity ID")
 	}
@@ -49,7 +49,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) Read(ctx context.Context, id uuid.UUID
 	return entity, nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+func (s *ServiceImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
 	if err := s.validate(entity); err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) Update(ctx context.Context, entity *{{
 	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *ServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
 		return errors.New("invalid entity ID")
 	}
@@ -73,7 +73,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) Delete(ctx context.Context, id uuid.UU
 	return nil
 }
 
-func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+func (s *ServiceImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
 	// Validações de paginação
 	if page < 1 {
 		page = 1 // Default
@@ -93,7 +93,7 @@ func (s *{{.TitleModuleName}}ServiceImpl) List(ctx context.Context, page int, li
 }
 
 {{range .CustomMethods}}
-func (s *{{$.TitleModuleName}}ServiceImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+func (s *ServiceImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
 	if param == "" {
 		return nil, errors.New("param cannot be empty")
 	}

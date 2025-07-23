@@ -13,19 +13,19 @@ import (
 // Boas práticas: Use prepared statements para segurança contra SQL injection, context para timeout/cancelamento, transações se necessário.
 // Performance: Use indexes no ID (UUID), CreatedAt/UpdatedAt. Para soft delete, filtre DeletedAt IS NULL.
 // Segurança: Sempre use placeholders (?) para params.
-type {{.TitleModuleName}}RepositoryImpl struct {
+type RepositoryImpl struct {
     db *sql.DB  // Conexão com o DB
     tableName string  // Nome da tabela (ex: "users")
 }
 
-func New{{.TitleModuleName}}Repository(db *sql.DB) {{.TitleModuleName}}Repository {
-    return &{{.TitleModuleName}}RepositoryImpl{
+func New{{.TitleModuleName}}Repository(db *sql.DB) Repository {
+    return &RepositoryImpl{
     db: db,
     tableName: "{{.ModuleName}}s",  // Ajuste conforme necessário (ex: "users" para module "user")
     }
 }
 
-func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
+func (r *RepositoryImpl) Create(ctx context.Context, entity *{{.TitleModuleName}}) error {
     if entity == nil {
     return errors.New("entity cannot be nil")
     }
@@ -48,7 +48,7 @@ func (r *{{.TitleModuleName}}RepositoryImpl) Create(ctx context.Context, entity 
     return nil
 }
 
-func (r *{{.TitleModuleName}}RepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
+func (r *RepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*{{.TitleModuleName}}, error) {
     query := fmt.Sprintf("SELECT id, created_at, updated_at, deleted_at FROM %s WHERE id = $1 AND deleted_at IS NULL", r.tableName)
     row := r.db.QueryRowContext(ctx, query, id)
 
@@ -62,7 +62,7 @@ func (r *{{.TitleModuleName}}RepositoryImpl) Read(ctx context.Context, id uuid.U
     return entity, nil
 }
 
-func (r *{{.TitleModuleName}}RepositoryImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
+func (r *RepositoryImpl) Update(ctx context.Context, entity *{{.TitleModuleName}}) error {
     if entity == nil {
     return errors.New("entity cannot be nil")
     }
@@ -81,7 +81,7 @@ func (r *{{.TitleModuleName}}RepositoryImpl) Update(ctx context.Context, entity 
     return nil
 }
 
-func (r *{{.TitleModuleName}}RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
     // Soft delete: Set DeletedAt
     now := time.Now()
     query := fmt.Sprintf("UPDATE %s SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL", r.tableName)
@@ -96,7 +96,7 @@ func (r *{{.TitleModuleName}}RepositoryImpl) Delete(ctx context.Context, id uuid
     return nil
 }
 
-func (r *{{.TitleModuleName}}RepositoryImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
+func (r *RepositoryImpl) List(ctx context.Context, page int, limit int) ([]*{{.TitleModuleName}}, int64, error) {
     // Calcula offset
     offset := (page - 1) * limit
 
@@ -133,7 +133,7 @@ func (r *{{.TitleModuleName}}RepositoryImpl) List(ctx context.Context, page int,
 
 // Métodos customizados como placeholders. Ajuste queries e params para produção.
 {{range .CustomMethods}}
-func (r *{{$.TitleModuleName}}RepositoryImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
+func (r *RepositoryImpl) {{.}}(ctx context.Context, param string) (*{{$.TitleModuleName}}, error) {
     if param == "" {
     return nil, errors.New("param cannot be empty")
     }

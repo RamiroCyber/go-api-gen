@@ -8,15 +8,15 @@ import (
     "strconv" // Novo: para parsear ints de query params
 )
 
-type {{.TitleModuleName}}Controller struct {
-    service {{.TitleModuleName}}Service
+type Controller struct {
+    service Service
 }
 
-func New{{.TitleModuleName}}Controller(service {{.TitleModuleName}}Service) *{{.TitleModuleName}}Controller {
-    return &{{.TitleModuleName}}Controller{service: service}
+func New{{.TitleModuleName}}Controller(service Service) *Controller {
+    return &Controller{service: service}
 }
 
-func (ctrl *{{.TitleModuleName}}Controller) Create(c *fiber.Ctx) error {
+func (ctrl *Controller) Create(c *fiber.Ctx) error {
     var entity {{.TitleModuleName}}
     if err := c.BodyParser(&entity); err != nil {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("failed to parse request body: %v", err)})
@@ -28,7 +28,7 @@ func (ctrl *{{.TitleModuleName}}Controller) Create(c *fiber.Ctx) error {
     return c.Status(fiber.StatusCreated).JSON(entity)
 }
 
-func (ctrl *{{.TitleModuleName}}Controller) Read(c *fiber.Ctx) error {
+func (ctrl *Controller) Read(c *fiber.Ctx) error {
     idStr := c.Params("id")
     id, err := uuid.Parse(idStr)
     if err != nil {
@@ -44,7 +44,7 @@ func (ctrl *{{.TitleModuleName}}Controller) Read(c *fiber.Ctx) error {
     return c.Status(fiber.StatusOK).JSON(entity)
 }
 
-func (ctrl *{{.TitleModuleName}}Controller) Update(c *fiber.Ctx) error {
+func (ctrl *Controller) Update(c *fiber.Ctx) error {
     idStr := c.Params("id")
     id, err := uuid.Parse(idStr)
     if err != nil {
@@ -71,7 +71,7 @@ func (ctrl *{{.TitleModuleName}}Controller) Update(c *fiber.Ctx) error {
     return c.Status(fiber.StatusOK).JSON(entity)
 }
 
-func (ctrl *{{.TitleModuleName}}Controller) Delete(c *fiber.Ctx) error {
+func (ctrl *Controller) Delete(c *fiber.Ctx) error {
     idStr := c.Params("id")
     id, err := uuid.Parse(idStr)
     if err != nil {
@@ -86,7 +86,7 @@ func (ctrl *{{.TitleModuleName}}Controller) Delete(c *fiber.Ctx) error {
     return c.SendStatus(fiber.StatusNoContent)
 }
 
-func (ctrl *{{.TitleModuleName}}Controller) List(c *fiber.Ctx) error {
+func (ctrl *Controller) List(c *fiber.Ctx) error {
     // Parse query params para paginação (com defaults)
     pageStr := c.Query("page", "1")
     limitStr := c.Query("limit", "10")
@@ -115,7 +115,7 @@ func (ctrl *{{.TitleModuleName}}Controller) List(c *fiber.Ctx) error {
 }
 
 {{range .CustomMethods}}
-func (ctrl *{{$.TitleModuleName}}Controller) {{.}}(c *fiber.Ctx) error {
+func (ctrl *Controller) {{.}}(c *fiber.Ctx) error {
     param := c.Query("param")  // Placeholder: Ajuste para body, path params ou múltiplos queries conforme método (ex: c.Params("email") para FindByEmail/:email)
     if param == "" {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing required parameter"})
